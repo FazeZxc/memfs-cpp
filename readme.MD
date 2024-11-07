@@ -94,7 +94,7 @@ This will open the memFS command line interface, where you can enter the followi
 
 ### Benchmarking
 
-    To evaluate the performance of memFS with different workloads, you can create test scripts or functions that call the create, write, read, and delete commands in specified amounts (100, 1000, and 10000 times) with different numbers of threads (1, 2, 4, 8, 16). Record the average latency and CPU/memory usage for each test.
+`To evaluate the performance of memFS with different workloads, you can create test scripts or functions that call the create, write, read, and delete commands in specified amounts (100, 1000, and 10000 times) with different numbers of threads (1, 2, 4, 8, 16). Record the average latency and CPU/memory usage for each test.`
 
 ### Files
 
@@ -105,6 +105,6 @@ This will open the memFS command line interface, where you can enter the followi
 
 Note: This project is designed for learning purposes and is not intended for production use, as data is stored only in RAM and will be lost upon closing the program.
 
-```
-This `README.md` provides a complete overview of the project, installation instructions, usage examples, and notes on benchmarking, fulfilling all essential documentation needs.
-```
+
+``This `README.md` provides a complete overview of the project, installation instructions, usage examples, and notes on benchmarking, fulfilling all essential documentation needs.``
+
