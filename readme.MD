@@ -79,18 +79,18 @@ This will open the memFS command line interface, where you can enter the followi
 
 ### Examples
 
-    ```bash
-    memFS> create todo.txt
-    File created successfully.
-    memFS> write todo.txt "Finish the project by 17th November"
-    Successfully written to todo.txt.
-    memFS> read todo.txt
-    Finish the project by 17th November
-    memFS> ls -l
-    todo.txt 35 bytes Created: 06/11/2024 Last Modified: 06/11/2024
-    memFS> delete todo.txt
-    File deleted successfully.
-    ```
+  ```bash
+  memFS> create todo.txt
+  File created successfully.
+  memFS> write todo.txt "Finish the project by 17th November"
+  Successfully written to todo.txt.
+  memFS> read todo.txt
+  Finish the project by 17th November
+  memFS> ls -l
+  todo.txt 35 bytes Created: 06/11/2024 Last Modified: 06/11/2024
+  memFS> delete todo.txt
+  File deleted successfully.
+  ```
 
 ### Benchmarking
 
