@@ -8,72 +8,120 @@
 #include <chrono>
 #include <iomanip>
 #include <ctime>
+#include <mutex>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
+
+// Struct to store benchmark results for each configuration
+struct Result {
+    int workload;
+    int thread_count;
+    double avg_latency;
+    double cpu_usage;
+    size_t memory_usage;
+};
+
+// Placeholder for measuring CPU and memory utilization
+void measureUtilization(double &cpuUsage, size_t &memoryUsage) {
+    // Platform-specific logic for measuring CPU and memory usage
+    cpuUsage = 0.0;  // Replace with actual CPU usage logic
+    memoryUsage = 0; // Replace with actual memory usage logic
+}
+
+void performWorkload(MemFS &fs, int workload, int thread_count, double &avgLatency, double &cpuUsage, size_t &memoryUsage) {
+    auto start_time = std::chrono::high_resolution_clock::now();
+
+    std::vector<std::thread> threads;
+    std::mutex mtx;
+    int filesPerThread = workload / thread_count;
+
+    // Create files
+    for (int t = 0; t < thread_count; ++t) {
+        threads.emplace_back([&fs, &mtx, t, filesPerThread]() {
+            for (int i = t * filesPerThread; i < (t + 1) * filesPerThread; ++i) {
+                std::string filename = "file" + std::to_string(i);
+                std::lock_guard<std::mutex> lock(mtx);
+                fs.createFile(filename);
+            }
+        });
+    }
+    for (auto &t : threads) t.join();
+    threads.clear();
+
+    // Write to files
+    for (int t = 0; t < thread_count; ++t) {
+        threads.emplace_back([&fs, &mtx, t, filesPerThread]() {
+            for (int i = t * filesPerThread; i < (t + 1) * filesPerThread; ++i) {
+                std::string filename = "file" + std::to_string(i);
+                std::string content = "This is content for " + filename;
+                std::lock_guard<std::mutex> lock(mtx);
+                fs.writeFile(filename, content);
+            }
+        });
+    }
+    for (auto &t : threads) t.join();
+    threads.clear();
+
+    // Delete files
+    for (int t = 0; t < thread_count; ++t) {
+        threads.emplace_back([&fs, &mtx, t, filesPerThread]() {
+            for (int i = t * filesPerThread; i < (t + 1) * filesPerThread; ++i) {
+                std::string filename = "file" + std::to_string(i);
+                std::lock_guard<std::mutex> lock(mtx);
+                fs.deleteFiles(1, std::vector<std::string>{filename});
+            }
+        });
+    }
+    for (auto &t : threads) t.join();
+
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+
+    // Calculate average latency
+    avgLatency = static_cast<double>(duration) / (3 * workload);
+
+    // Measure CPU and memory utilization
+    measureUtilization(cpuUsage, memoryUsage);
+}
 
 void benchmark(MemFS &fs) {
-    int workloads[] = {100, 1000, 10000};
+    int workloads[] = {100,1000 ,10000};
     int thread_counts[] = {1, 2, 4, 8, 16};
     
-    // Map to store time taken for each workload and thread count
-    std::map<int, std::map<int, long long>> times;
+    std::vector<Result> results; // Vector to store all results
 
     for (int workload : workloads) {
         for (int thread_count : thread_counts) {
-            auto start_time = std::chrono::high_resolution_clock::now();
-            
-            // Create files in parallel
-            std::vector<std::thread> threads;
-            for (int i = 0; i < workload; ++i) {
-                std::string filename = "file" + std::to_string(i);
-                threads.emplace_back([&fs, filename]() { // Capture fs by reference
-                    fs.createFile(filename);
-                });
-            }
-            for (auto& t : threads) t.join();
-            threads.clear();
+            double avgLatency = 0.0;
+            double cpuUsage = 0.0;
+            size_t memoryUsage = 0;
 
-            // Write to files in parallel
-            for (int i = 0; i < workload; ++i) {
-                std::string filename = "file" + std::to_string(i);
-                std::string content = "This is content for " + filename;
-                threads.emplace_back([&fs, filename, content]() { // Capture fs by reference
-                    fs.writeFile(filename, content);
-                });
-            }
-            for (auto& t : threads) t.join();
-            threads.clear();
+            performWorkload(fs, workload, thread_count, avgLatency, cpuUsage, memoryUsage);
 
-            // Delete files in parallel
-            for (int i = 0; i < workload; ++i) {
-                std::string filename = "file" + std::to_string(i);
-                threads.emplace_back([&fs, filename]() { // Capture fs by reference
-                    fs.deleteFiles(1, std::vector<std::string>{filename});
-                });
-            }
-            for (auto& t : threads) t.join();
-
-            auto end_time = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-            
-            // Store the duration in the map
-            times[workload][thread_count] = duration;
-
-            // Output the benchmarking results
-            std::cout << "Benchmark results for workload " << workload << " with " << thread_count << " threads:\n";
-            std::cout << "Total Time: " << duration << " ms\n";
-            std::cout << "Average Latency: " << static_cast<double>(duration) / (3 * workload) << " ms\n"; // Average over 3 operations
+            // Store the results in the vector
+            results.push_back({workload, thread_count, avgLatency, cpuUsage, memoryUsage});
         }
     }
 
-    // Print the cumulative times for each workload and thread count
-    std::cout << "\nSummary of Times for Each Workload and Thread Count:\n";
-    for (const auto& workload_entry : times) {
-        int workload = workload_entry.first;
-        for (const auto& thread_entry : workload_entry.second) {
-            int thread_count = thread_entry.first;
-            long long duration = thread_entry.second;
-            std::cout << "Workload: " << workload << ", Threads: " << thread_count 
-                      << ", Time Taken: " << duration << " ms\n";
-        }
+    // Print summary of all results
+    std::cout << "\nSummary of Benchmark Results:\n";
+    std::cout << std::setw(10) << "Workload" 
+              << std::setw(15) << "Threads" 
+              << std::setw(20) << "Avg Latency (ms)" 
+              << std::setw(15) << "CPU Usage (%)" 
+              << std::setw(20) << "Memory Usage (KB)\n";
+    std::cout << std::string(80, '-') << "\n";
+    
+    for (const auto& result : results) {
+        std::cout << std::setw(10) << result.workload
+                  << std::setw(15) << result.thread_count
+                  << std::setw(20) << std::fixed << std::setprecision(2) << result.avg_latency
+                  << std::setw(15) << result.cpu_usage
+                  << std::setw(20) << result.memory_usage / 1024 << "\n"; // Convert to KB
     }
 }
 
